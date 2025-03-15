@@ -1,7 +1,10 @@
 from collections import defaultdict
 from tqdm import tqdm
-from utils import clean_gpu, system_prompt
+from utils import *
 from translator import *
+
+translator_class_list = GameDialogueTranslator.__subclasses__()
+samples = create_dataset(num_samples_each_depth=100)
 
 for language in ["Portuguese", "Bengali", "Spanish"]:
     print(f"_____________Language {language}")
@@ -13,6 +16,7 @@ for language in ["Portuguese", "Bengali", "Spanish"]:
         
         for variation in tqdm(variation_list):
             total_time = 0
+            total_gpu_cost = 0
             variation_result = defaultdict(dict)
             
             print(f"_____Working on {variation}")
@@ -25,19 +29,21 @@ for language in ["Portuguese", "Bengali", "Spanish"]:
                 translator = subclass(variation=variation)
             
             # Translate each selected example
-            for example in selected_examples:
-                original_game_dialogue = example['dialogue_tree']
+            for sample in samples:
+                original_game_dialogue = sample['dialogue_tree']
                 
                 # Start timing the translation
-                translation, time_cost = translator.translate_text(original_game_dialogue, target_lang=language)
+                translation, time_cost, gpu_cost = translator.translate_text(original_game_dialogue, target_lang=language)
                 clean_gpu()
                 total_time += time_cost
+                total_gpu_cost += gpu_cost
                 
                 # Save the result
                 variation_result[original_game_dialogue] = translation
             
             # Calculate the mean time cost
-            variation_result['mean_time_cost'] = total_time / len(selected_examples)
+            variation_result['mean_time_cost'] = total_time / len(samples)
+            variation_result['mean_gpu_cost'] = total_gpu_cost / len(samples)
             
             # Append the result for this variation
             results[variation] = variation_result
@@ -45,5 +51,9 @@ for language in ["Portuguese", "Bengali", "Spanish"]:
             del translator.model
             clean_gpu()
             print(f"Example: \n{original_game_dialogue} \n\n{translation}")
+
     df = pd.DataFrame(results).T
-    df.to_csv(f"{language.lower()}_game_translation_test.csv")
+    try:
+        df.to_csv(f"{language.lower()}_game_translation_{samples*5}.csv")
+    except:
+        df.to_csv(f"{language.lower()}_game_translation_{samples}.csv")

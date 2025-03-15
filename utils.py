@@ -1,5 +1,9 @@
 import torch
+from datasets import Dataset
+
 import gc
+import pandas as pd
+import json
 
 system_prompt = """You are a professional game translator, whose goal is \
 to ensure players speaking languages other than English can fully experience the game as the authors' \
@@ -31,3 +35,49 @@ def clean_gpu():
     gc.collect()
     # Clear GPU cache
     torch.cuda.empty_cache()
+
+def generate_dialogue_trees(data, max_dialogue_depth=5):
+    dialogues_data = []
+    traversed_rows = set()
+
+    for index, row in data.iterrows():
+        if index in traversed_rows:
+            continue
+
+        dialogue_tree = [f"{row['speaker']}: {row['text']}"]
+        traversed_rows.add(index)
+        depth = 1
+        current_row = row
+
+        while depth < max_dialogue_depth:
+            next_choice_ids = json.loads(current_row['next'])
+            dialogue_choice_id = next((choice_id for choice_id in next_choice_ids if choice_id not in traversed_rows), None)
+            
+            if dialogue_choice_id is None:
+                break
+
+            current_row = data.loc[dialogue_choice_id]
+            dialogue_tree.append(f"{current_row['speaker']}: {current_row['text']}")
+            traversed_rows.add(dialogue_choice_id)
+            depth += 1
+
+        dialogues_data.append({"dialogue_tree": "\n".join(dialogue_tree), "depth": depth})
+    
+    return pd.DataFrame(dialogues_data)
+
+def create_dataset(max_dialogue_depth=5, num_samples_each_depth=200, random_state=42):
+    data = pd.read_csv("/home/leelab-alignfreeze2/LRL-Game-Dialogue-Translator/dataset_20200716.csv", index_col="id")
+    # Remove unecessary cols
+    data = data.drop(["listener", "animation", "comment", "previous", "source_dlg", "audiofile"], axis=1)
+    print(f"Total duplicated records in csv file: {sum(data.duplicated())}")
+    dialogue_dataset = generate_dialogue_trees(data, max_dialogue_depth=max_dialogue_depth)
+    print(f"Total duplicated records in dataset: {sum(dialogue_dataset.duplicated())}")
+    dialogue_dataset = dialogue_dataset.drop_duplicates()
+    print(f"Total unique records in dataset: {len(dialogue_dataset)}")
+    print(dialogue_dataset.depth.value_counts())
+    selected_examples = (
+        dialogue_dataset.groupby("depth", group_keys=False)
+        .apply(lambda x: x.sample(n=num_samples_each_depth, random_state=random_state) if not x.empty else None)
+    )
+    selected_examples.reset_index(drop=True)
+    return Dataset.from_pandas(selected_examples, preserve_index=False)

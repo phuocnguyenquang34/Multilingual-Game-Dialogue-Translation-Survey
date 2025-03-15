@@ -69,10 +69,19 @@ class NLLB_Translator(GameDialogueTranslator):
             
         inputs = self.tokenizer(text, return_tensors="pt").to(self.device)  # Assuming GPU usage
         inputs["forced_bos_token_id"] = self.tokenizer.convert_tokens_to_ids(target_lang)
+
+        if torch.cuda.is_available():
+            gpu_memory_before = torch.cuda.memory_allocated()
         start_time = time.time()
         output_tokens = self.model.generate(**inputs, max_length=512)
+        # Record GPU memory usage after generation
+        if torch.cuda.is_available():
+            gpu_memory_after = torch.cuda.memory_allocated()
+            gpu_memory_used = gpu_memory_after - gpu_memory_before
+        else:
+            gpu_memory_used = 0  # No GPU usage if CUDA is unavailable
         time_cost = time.time() - start_time
-        return self.tokenizer.decode(output_tokens[0], skip_special_tokens=True), time_cost
+        return self.tokenizer.decode(output_tokens[0], skip_special_tokens=True), time_cost, gpu_memory_used
 
     def get_possible_variations():
         return [
@@ -92,7 +101,10 @@ class Qwen_Translator(GameDialogueTranslator):
             quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             
         tokenizer = AutoTokenizer.from_pretrained(variation, cache_dir=model_cache_dir)
-        model = AutoModelForCausalLM.from_pretrained(variation, quantization_config=quantization_config, cache_dir=model_cache_dir)
+        model = AutoModelForCausalLM.from_pretrained(variation, attn_implementation='flash_attention_2',
+                                                     torch_dtype=torch.bfloat16,
+                                                     quantization_config=quantization_config, 
+                                                     cache_dir=model_cache_dir)
         if quantization_config is None:
             model.to(self.device)
             
@@ -109,11 +121,19 @@ class Qwen_Translator(GameDialogueTranslator):
         )
         model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
 
+        if torch.cuda.is_available():
+            gpu_memory_before = torch.cuda.memory_allocated()
         start_time = time.time()
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=512
         )
+        # Record GPU memory usage after generation
+        if torch.cuda.is_available():
+            gpu_memory_after = torch.cuda.memory_allocated()
+            gpu_memory_used = gpu_memory_after - gpu_memory_before
+        else:
+            gpu_memory_used = 0  # No GPU usage if CUDA is unavailable
         time_cost = time.time() - start_time
         
         generated_ids = [
@@ -121,7 +141,7 @@ class Qwen_Translator(GameDialogueTranslator):
         ]
         
         translated_text = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        return translated_text, time_cost
+        return translated_text, time_cost, gpu_memory_used
 
     def get_possible_variations():
         return [
@@ -149,6 +169,8 @@ class Aya_Translator(GameDialogueTranslator):
         
         input_ids = self.tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(self.device)
 
+        if torch.cuda.is_available():
+            gpu_memory_before = torch.cuda.memory_allocated()
         start_time = time.time()
         gen_tokens = self.model.generate(
             input_ids, 
@@ -156,10 +178,16 @@ class Aya_Translator(GameDialogueTranslator):
             do_sample=True, 
             temperature=0.3,
             )
+        # Record GPU memory usage after generation
+        if torch.cuda.is_available():
+            gpu_memory_after = torch.cuda.memory_allocated()
+            gpu_memory_used = gpu_memory_after - gpu_memory_before
+        else:
+            gpu_memory_used = 0  # No GPU usage if CUDA is unavailable
         time_cost = time.time() - start_time
         
         translated_text = self.tokenizer.decode(gen_tokens[0, input_ids.shape[1]:],skip_special_tokens=True)
-        return translated_text, time_cost
+        return translated_text, time_cost, gpu_memory_used
 
     def get_possible_variations():
         return [
@@ -183,8 +211,16 @@ class Bloomz_mT0_Translator(GameDialogueTranslator):
     def translate_text(self, text, variation, source_lang="eng_Latn", target_lang="Vietnamese"):
         inputs = self.tokenizer.encode(f"Given this game dialogue: \n'''\n{text}\n'''\nTranslate to {target_lang}.", return_tensors="pt").to(self.device)
         
+        if torch.cuda.is_available():
+            gpu_memory_before = torch.cuda.memory_allocated()
         start_time = time.time()
         outputs = self.model.generate(inputs, max_length=512)
+        # Record GPU memory usage after generation
+        if torch.cuda.is_available():
+            gpu_memory_after = torch.cuda.memory_allocated()
+            gpu_memory_used = gpu_memory_after - gpu_memory_before
+        else:
+            gpu_memory_used = 0  # No GPU usage if CUDA is unavailable
         time_cost = time.time() - start_time
 
         if variation == type(self).get_possible_variations()[0]:
@@ -192,7 +228,7 @@ class Bloomz_mT0_Translator(GameDialogueTranslator):
         else:
             translated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        return translated_text, time_cost
+        return translated_text, time_cost, gpu_memory_used
 
     def get_possible_variations():
         return [
@@ -228,6 +264,8 @@ class Llama_Translator(GameDialogueTranslator):
         )
         model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
 
+        if torch.cuda.is_available():
+            gpu_memory_before = torch.cuda.memory_allocated()
         start_time = time.time()
         generated_ids = self.model.generate(
             **model_inputs,
@@ -235,6 +273,12 @@ class Llama_Translator(GameDialogueTranslator):
             do_sample=True,
             temperature=0.3
         )
+        # Record GPU memory usage after generation
+        if torch.cuda.is_available():
+            gpu_memory_after = torch.cuda.memory_allocated()
+            gpu_memory_used = gpu_memory_after - gpu_memory_before
+        else:
+            gpu_memory_used = 0  # No GPU usage if CUDA is unavailable
         time_cost = time.time() - start_time
         
         generated_ids = [
@@ -242,7 +286,7 @@ class Llama_Translator(GameDialogueTranslator):
         ]
         
         translated_text = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        return translated_text, time_cost
+        return translated_text, time_cost, gpu_memory_used
 
     def get_possible_variations():
         return [
