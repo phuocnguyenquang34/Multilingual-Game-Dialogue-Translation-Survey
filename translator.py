@@ -13,15 +13,15 @@ class GameDialogueTranslator(ABC):
         :param variation: The variation to load the model for.
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, self.tokenizer = self.load_model(variation)
+        self.variation = variation
+        self.model, self.tokenizer = self.load_model()
     
     @abstractmethod
-    def load_model(self, variation):
+    def load_model(self):
         """
         This method should load and return the model based on the given variation.
         Needs to be implemented in a subclass.
         
-        :param variation: The variation for which to load the model.
         :return: The loaded model.
         """
         pass
@@ -53,9 +53,9 @@ class NLLB_Translator(GameDialogueTranslator):
     def __init__(self, variation='facebook/nllb-200-distilled-600M'):
         super().__init__(variation)
     
-    def load_model(self, variation):
-        tokenizer = AutoTokenizer.from_pretrained(variation, cache_dir=model_cache_dir)
-        model = AutoModelForSeq2SeqLM.from_pretrained(variation, cache_dir=model_cache_dir)
+    def load_model(self):
+        tokenizer = AutoTokenizer.from_pretrained(self.variation, cache_dir=model_cache_dir)
+        model = AutoModelForSeq2SeqLM.from_pretrained(self.variation, cache_dir=model_cache_dir)
         model.to(self.device)
         return model, tokenizer
     
@@ -95,14 +95,15 @@ class Qwen_Translator(GameDialogueTranslator):
         self.system_prompt = system_prompt
         super().__init__(variation)
     
-    def load_model(self, variation):
+    def load_model(self):
         quantization_config = None
-        if variation == type(self).get_possible_variations()[-1]:
+        if self.variation == type(self).get_possible_variations()[-1]:
             quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             
-        tokenizer = AutoTokenizer.from_pretrained(variation, cache_dir=model_cache_dir)
-        model = AutoModelForCausalLM.from_pretrained(variation, attn_implementation='flash_attention_2',
-                                                     torch_dtype=torch.bfloat16,
+        tokenizer = AutoTokenizer.from_pretrained(self.variation, cache_dir=model_cache_dir)
+        model = AutoModelForCausalLM.from_pretrained(self.variation, 
+                                                    #  attn_implementation='flash_attention_2',
+                                                    #  torch_dtype=torch.bfloat16,
                                                      quantization_config=quantization_config, 
                                                      cache_dir=model_cache_dir)
         if quantization_config is None:
@@ -156,11 +157,11 @@ class Aya_Translator(GameDialogueTranslator):
         self.system_prompt = system_prompt
         super().__init__(variation)
     
-    def load_model(self, variation):
+    def load_model(self):
         quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             
-        tokenizer = AutoTokenizer.from_pretrained(variation, cache_dir=model_cache_dir)
-        model = AutoModelForCausalLM.from_pretrained(variation, quantization_config=quantization_config, cache_dir=model_cache_dir)        
+        tokenizer = AutoTokenizer.from_pretrained(self.variation, cache_dir=model_cache_dir)
+        model = AutoModelForCausalLM.from_pretrained(self.variation, quantization_config=quantization_config, cache_dir=model_cache_dir)        
         return model, tokenizer
     
     def translate_text(self, text, source_lang="eng_Latn", target_lang="Vietnamese"):
@@ -198,17 +199,17 @@ class Bloomz_mT0_Translator(GameDialogueTranslator):
     def __init__(self, variation='bigscience/mt0-xl'):
         super().__init__(variation)
     
-    def load_model(self, variation):    
-        if variation == type(self).get_possible_variations()[0]:
-            tokenizer = AutoTokenizer.from_pretrained(variation, cache_dir=model_cache_dir)
-            model = AutoModelForCausalLM.from_pretrained(variation, cache_dir=model_cache_dir)
+    def load_model(self):    
+        if self.variation == type(self).get_possible_variations()[0]:
+            tokenizer = AutoTokenizer.from_pretrained(self.variation, cache_dir=model_cache_dir)
+            model = AutoModelForCausalLM.from_pretrained(self.variation, cache_dir=model_cache_dir)
         else:    
-            tokenizer = AutoTokenizer.from_pretrained(variation, cache_dir=model_cache_dir)
-            model = AutoModelForSeq2SeqLM.from_pretrained(variation, cache_dir=model_cache_dir)
+            tokenizer = AutoTokenizer.from_pretrained(self.variation, cache_dir=model_cache_dir)
+            model = AutoModelForSeq2SeqLM.from_pretrained(self.variation, cache_dir=model_cache_dir)
         model.to(self.device)
         return model, tokenizer
     
-    def translate_text(self, text, variation, source_lang="eng_Latn", target_lang="Vietnamese"):
+    def translate_text(self, text, source_lang="eng_Latn", target_lang="Vietnamese"):
         inputs = self.tokenizer.encode(f"Given this game dialogue: \n'''\n{text}\n'''\nTranslate to {target_lang}.", return_tensors="pt").to(self.device)
         
         if torch.cuda.is_available():
@@ -223,7 +224,7 @@ class Bloomz_mT0_Translator(GameDialogueTranslator):
             gpu_memory_used = 0  # No GPU usage if CUDA is unavailable
         time_cost = time.time() - start_time
 
-        if variation == type(self).get_possible_variations()[0]:
+        if self.variation == type(self).get_possible_variations()[0]:
             translated_text = self.tokenizer.decode(outputs[0, inputs.shape[1]:], skip_special_tokens=True)
         else:
             translated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -241,13 +242,13 @@ class Llama_Translator(GameDialogueTranslator):
         self.system_prompt = system_prompt
         super().__init__(variation)
     
-    def load_model(self, variation):
+    def load_model(self):
         quantization_config = None
-        if variation in type(self).get_possible_variations()[2:]:
+        if self.variation in type(self).get_possible_variations()[2:]:
             quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             
-        tokenizer = AutoTokenizer.from_pretrained(variation, cache_dir=model_cache_dir)
-        model = AutoModelForCausalLM.from_pretrained(variation, quantization_config=quantization_config, cache_dir=model_cache_dir)
+        tokenizer = AutoTokenizer.from_pretrained(self.variation, cache_dir=model_cache_dir)
+        model = AutoModelForCausalLM.from_pretrained(self.variation, quantization_config=quantization_config, cache_dir=model_cache_dir)
         if quantization_config is None:
             model.to(self.device)
             

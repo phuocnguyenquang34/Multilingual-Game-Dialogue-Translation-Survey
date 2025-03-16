@@ -66,7 +66,7 @@ def generate_dialogue_trees(data, max_dialogue_depth=5):
     return pd.DataFrame(dialogues_data)
 
 def create_dataset(max_dialogue_depth=5, num_samples_each_depth=200, random_state=42):
-    data = pd.read_csv("/home/leelab-alignfreeze2/LRL-Game-Dialogue-Translator/dataset_20200716.csv", index_col="id")
+    data = pd.read_csv("dataset_20200716.csv", index_col="id")
     # Remove unecessary cols
     data = data.drop(["listener", "animation", "comment", "previous", "source_dlg", "audiofile"], axis=1)
     print(f"Total duplicated records in csv file: {sum(data.duplicated())}")

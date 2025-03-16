@@ -4,9 +4,9 @@ from utils import *
 from translator import *
 
 translator_class_list = GameDialogueTranslator.__subclasses__()
-samples = create_dataset(num_samples_each_depth=100)
+samples = create_dataset(num_samples_each_depth=50)
 
-for language in ["Portuguese", "Bengali", "Spanish"]:
+for language in ["Vietnamese", "Portuguese", "Bengali", "Spanish"]:
     print(f"_____________Language {language}")
     results = defaultdict(dict)
     
