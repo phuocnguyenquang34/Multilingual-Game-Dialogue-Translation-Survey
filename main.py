@@ -1,17 +1,22 @@
 from collections import defaultdict
+import os
 from tqdm import tqdm
 from utils import *
 from translator import *
 
 translator_class_list = GameDialogueTranslator.__subclasses__()
 samples = create_dataset(num_samples_each_depth=50)
+lang_list = ["Vietnamese", "Portuguese", "Bengali", "Spanish"]
 
-for language in ["Vietnamese", "Portuguese", "Bengali", "Spanish"]:
+save_dir = 'output'
+os.makedirs(save_dir, exist_ok=True)
+
+for language in lang_list:
     print(f"_____________Language {language}")
     results = defaultdict(dict)
     
     # Iterate through each subclass in the translator class list
-    for subclass in translator_class_list:
+    for subclass in tqdm(translator_class_list):
         variation_list = subclass.get_possible_variations()
         
         for variation in tqdm(variation_list):
@@ -29,7 +34,7 @@ for language in ["Vietnamese", "Portuguese", "Bengali", "Spanish"]:
                 translator = subclass(variation=variation)
             
             # Translate each selected example
-            for sample in samples:
+            for sample in tqdm(samples):
                 original_game_dialogue = sample['dialogue_tree']
                 
                 # Start timing the translation
@@ -53,7 +58,4 @@ for language in ["Vietnamese", "Portuguese", "Bengali", "Spanish"]:
             print(f"Example: \n{original_game_dialogue} \n\n{translation}")
 
     df = pd.DataFrame(results).T
-    try:
-        df.to_csv(f"{language.lower()}_game_translation_{samples*5}.csv")
-    except:
-        df.to_csv(f"{language.lower()}_game_translation_{samples}.csv")
+    df.to_csv(f"{save_dir}/{language.lower()}_game_translation_{len(samples)}.csv")

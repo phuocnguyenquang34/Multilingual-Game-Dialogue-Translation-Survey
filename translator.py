@@ -66,6 +66,8 @@ class NLLB_Translator(GameDialogueTranslator):
             target_lang = "ben_Beng"
         elif target_lang == "Spanish":
             target_lang = "spa_Latn"
+        elif target_lang == "Vietnamese":
+            target_lang = "vie_Latn"
             
         inputs = self.tokenizer(text, return_tensors="pt").to(self.device)  # Assuming GPU usage
         inputs["forced_bos_token_id"] = self.tokenizer.convert_tokens_to_ids(target_lang)
