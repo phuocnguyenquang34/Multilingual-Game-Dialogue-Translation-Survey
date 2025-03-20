@@ -58,17 +58,17 @@ def main():
             st.error(f"Error loading {file_name}: {e}")
 
     if dataframes:
-        selected_csv = st.selectbox("Select Translation Language:", language_list)
+        selected_language = st.selectbox("Select Translation Language:", language_list)
 
-        if selected_csv:
-            df = dataframes[selected_csv]
+        if selected_language:
+            df = dataframes[selected_language]
 
             if 'original' not in df.columns or 'gemini_translation' not in df.columns:
                 st.error("CSV file must contain 'question' and 'answer' columns.")
                 return
 
             if 'question_indices' not in st.session_state:
-                st.session_state.question_indices = random.sample(range(len(df)), min(5, len(df)))
+                st.session_state.question_indices = random.sample(range(len(df)), min(25, len(df)))
                 st.session_state.current_index = 0
                 st.session_state.ratings = {} # Initialize ratings storage
 
@@ -106,6 +106,10 @@ def main():
                     st.session_state.current_index += 1
                     st.rerun()  # Rerun the script to load the next question
                 
+                progress_percent = (st.session_state.current_index + 1) / len(st.session_state.question_indices)
+                progress_text = f"{st.session_state.current_index + 1} / {len(st.session_state.question_indices)}"
+                st.progress(progress_percent, text=progress_text)
+                
                 st.subheader("Evaluation Rubric:")
                 st.markdown("""
                 Rate the translation on a scale from 1 to 5 based on two main criteria: correctness and attractiveness.
@@ -120,7 +124,8 @@ def main():
                 st.write("All translation have been evaluated.")
                 if st.session_state.ratings:
                     ratings_df = pd.DataFrame(list(st.session_state.ratings.items()), columns=['index', 'rating'])
-                    ratings_df['selected_csv'] = selected_csv
+                    ratings_df.set_index('index', inplace=True)
+                    ratings_df['language'] = selected_language
                     st.write("Ratings:")
                     st.dataframe(ratings_df)
 
