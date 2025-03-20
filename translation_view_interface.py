@@ -3,6 +3,7 @@ import pandas as pd
 import os
 
 def main():
+    st.set_page_config(layout="wide")
     st.title("Output Translation Viewer")
 
     data_dir = "output"  # Directory containing CSV files
@@ -17,17 +18,20 @@ def main():
         return
 
     dataframes = {}
+    language_list = []
     for file_name in csv_files:
+        language = file_name.split("_")[0].capitalize()
         file_path = os.path.join(data_dir, file_name)
+        language_list.append(language)
         try:
             df = pd.read_csv(file_path, index_col=0)
-            dataframes[file_name] = df
+            dataframes[language] = df
         except Exception as e:
             st.error(f"Error loading {file_name}: {e}")
 
     if dataframes:
         gpu_to_load_model_df = pd.read_csv("gpu_to_load_model.csv", index_col=0)
-        selected_csv = st.selectbox("Select Output File:", csv_files)
+        selected_csv = st.selectbox("Select Output File:", language_list)
 
         if selected_csv:
             df = dataframes[selected_csv]
