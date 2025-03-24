@@ -48,7 +48,7 @@ def main():
     dataframes = {}
     language_list = []
     for file_name in csv_files:
-        language = file_name.split("_")[1].capitalize()
+        language = file_name.split("_")[1].title()
         file_path = os.path.join(data_dir, file_name)
         try:
             df = pd.read_csv(file_path)
