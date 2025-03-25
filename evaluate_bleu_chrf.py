@@ -1,5 +1,6 @@
 import pandas as pd
 from sacrebleu.metrics import BLEU, CHRF
+from bert_score import score
 import os
 from tqdm import tqdm
 
@@ -28,6 +29,7 @@ def create_bleu_chrf_dataframe(candidate_models):
         ('BLEU', '3-gram precision'),
         ('BLEU', '4-gram precision'),
         ('CHRF++', ''),  # No sub-columns for CHRF++
+        ('Mean_BERTScore_F1', '')
     ])
 
     df = pd.DataFrame(columns=columns, index=candidate_models)
@@ -56,7 +58,9 @@ if __name__ == "__main__":
             trans = output_df.loc[model].to_list()[:-2]
             bleu_score = bleu.corpus_score(hypotheses=trans, references=[refs])
             chrf_score = chrf.corpus_score(hypotheses=trans, references=[refs])
-            results = [bleu_score.score, bleu_score.sys_len/bleu_score.ref_len, *bleu_score.precisions, chrf_score.score]
+            P, R, F1 = score(trans, refs, model_type="bert-base-multilingual-cased", verbose=True)
+            mean_bertscore_f1 = float(F1.mean())
+            results = [bleu_score.score, bleu_score.sys_len/bleu_score.ref_len, *bleu_score.precisions, chrf_score.score, mean_bertscore_f1]
             results = [round(result, 2) for result in results]
             eval_df.loc[model] = results
-        eval_df.to_excel(f"evaluation/{lang.lower()}_gemini_bleu_chrf.xlsx")
+        eval_df.to_excel(f"evaluation/{lang.lower()}_gemini.xlsx")
