@@ -60,15 +60,45 @@ def create_plot_topk_results(df_long: pd.DataFrame, top_K: int = 5):
         ax = axes[i]
         df_metric = df_long.loc[df_long['Metric'] == metric]
         sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
-        # Calculate mean score per language
+
+        # Step 1: Top-K filtering
+        df_metric = df_metric.sort_values(['Language', 'Score'], ascending=[True, False])
+        df_metric = df_metric.groupby('Language', group_keys=False).head(top_K)
+
+        # Step 2: Determine order by average score
+        order = df_metric.groupby("Language")["Score"].mean().sort_values(ascending=False).index
+
+        # Step 3: Apply categorical ordering
+        print(order)
+        df_metric['Language'] = pd.Categorical(df_metric['Language'], categories=order, ordered=True)
+        df_metric = df_metric.sort_values('Language')
+
+        # Step 4: Compute and apply the same ordering to mean line
         mean_scores = df_metric.groupby('Language')['Score'].mean().reset_index()
         mean_scores['Model'] = 'Language Mean'
+        mean_scores['Language'] = pd.Categorical(mean_scores['Language'], categories=order, ordered=True)
+        mean_scores = mean_scores.sort_values('Language')
 
         # Plot the mean as a dotted black line
-        sns.lineplot(data=mean_scores, x='Language', y='Score', label='mean', ax=ax, linestyle='--', color='black', linewidth=1.2)
+        sns.lineplot(
+            data=mean_scores, 
+            x='Language', 
+            y='Score', 
+            label='mean', 
+            ax=ax, 
+            linestyle='--', 
+            color='black', 
+            linewidth=1.2)
         
-        df_metric = df_metric.sort_values(['Language', 'Score'], ascending=[True, False]).groupby('Language', group_keys=False).head(top_K)
-        sns.lineplot(data=df_metric, x='Language', y='Score', hue='Model', marker='o', ax=ax, linewidth=1.5)
+        sns.lineplot(
+            data=df_metric, 
+            x='Language', 
+            y='Score', 
+            hue='Model', 
+            marker='o', 
+            ax=ax, 
+            linewidth=1.5, 
+            )
         ax.set_xlabel("")
         ax.set_ylabel("")
         ax.set_title(metric, fontsize=13, weight='bold')
@@ -92,7 +122,7 @@ def create_plot_topk_results(df_long: pd.DataFrame, top_K: int = 5):
     # Shared x and y labels
     fig.supxlabel("Language", fontsize=12, y=0.05)
     fig.supylabel("Score", fontsize=12, x=0.01)
-    plt.suptitle(f"Top {top_K} Models Performance Across Languages", fontsize=16, weight='bold')
+    # plt.suptitle(f"Top {top_K} Models Performance Across Languages", fontsize=16, weight='bold')
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper center', ncol=4, bbox_to_anchor=(0.5, 1.15))
@@ -150,7 +180,7 @@ def create_plot_family_tradeoff(df_long):
     sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
 
     # Line plot by Family vs Param_Size 
-    sns.lineplot(
+    ax = sns.lineplot(
         data=df_grouped,
         x="Param_Size",
         y="Normalized_Mean_Score",
@@ -159,7 +189,21 @@ def create_plot_family_tradeoff(df_long):
         linewidth=2
     )
 
-    plt.title("Normalized Mean Score vs Parameter Size by Family", fontsize=14, weight='bold')
+    for i, row in df_grouped.iterrows():
+        ax.text(
+            row['Param_Size'],
+            row['Normalized_Mean_Score'] + 0.025,  # move label 
+            f"{row['Param_Size']}B",
+            fontsize=8,
+            ha='center',
+        )
+
+    # Remove top and right border
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # plt.title("Normalized Mean Score vs Parameter Size by Family", fontsize=14, weight='bold')
+    plt.grid(False)
     plt.xlabel("Parameter Size (Billions)", fontsize=12)
     plt.ylabel("Normalized Mean Score", fontsize=12)
     plt.tight_layout()
