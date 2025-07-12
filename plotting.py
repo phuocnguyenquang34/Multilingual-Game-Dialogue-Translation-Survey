@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import re
 
+from utils import create_dataset
+
 def read_eval_xlsx_file(file_path: str, language: str) -> pd.DataFrame:
     """
     Reads evaluation data from an Excel file.
@@ -102,7 +104,7 @@ def create_plot_topk_results(df_long: pd.DataFrame, top_K: int = 5):
         ax.set_xlabel("")
         ax.set_ylabel("")
         ax.set_title(metric, fontsize=13, weight='bold')
-        ax.tick_params(axis='x', rotation=30)
+        ax.tick_params(axis='x')
         ax.legend_.remove() 
 
         # Highlight best per language
@@ -125,11 +127,11 @@ def create_plot_topk_results(df_long: pd.DataFrame, top_K: int = 5):
     # plt.suptitle(f"Top {top_K} Models Performance Across Languages", fontsize=16, weight='bold')
 
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper center', ncol=4, bbox_to_anchor=(0.5, 1.15))
+    fig.legend(handles, labels, loc='upper center', ncol=4, bbox_to_anchor=(0.5, 1.05))
     # Adjust layout
     plt.tight_layout()
     plt.subplots_adjust(top=0.85)
-    plt.savefig('images/top_5_models.png', bbox_inches='tight')
+    plt.savefig('images/top_5_models.png', dpi=300, bbox_inches='tight')
 
 def extract_family(model_name):
     if "nllb" in model_name:
@@ -207,7 +209,40 @@ def create_plot_family_tradeoff(df_long):
     plt.xlabel("Parameter Size (Billions)", fontsize=12)
     plt.ylabel("Normalized Mean Score", fontsize=12)
     plt.tight_layout()
-    plt.savefig('images/performance_vs_size.png', bbox_inches='tight')
+    plt.savefig('images/performance_vs_size.png', dpi=300, bbox_inches='tight')
+
+def create_plot_depth_dist():
+    dialogue_dataset, _ = create_dataset()
+    depth_counts = dialogue_dataset.depth.value_counts().sort_index()
+
+    plt.figure(figsize=(4.5, 3), dpi=300)
+    bars = plt.bar(
+        depth_counts.index,
+        depth_counts.values,
+        color='#69b3a2',
+        edgecolor='black',
+        width=0.5
+    )
+
+    plt.xlabel('Depth Level', fontsize=10)
+    plt.ylabel('Number of Dialogues', fontsize=10)
+
+    # Add value labels on top of each bar
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2, yval + 50, f'{yval}', 
+                ha='center', va='bottom', fontsize=8)
+
+    plt.xticks(depth_counts.index, fontsize=8)
+    plt.yticks(fontsize=8)
+
+    # Remove top and right spines
+    for spine in ['top', 'right']:
+        plt.gca().spines[spine].set_visible(False)
+
+    plt.grid(False)
+    plt.tight_layout()
+    plt.savefig('images/depth_distribution.png', dpi=300, bbox_inches='tight')
 
 if __name__ == "__main__":
     evaluation_dir = "evaluation"
@@ -221,4 +256,5 @@ if __name__ == "__main__":
                             var_name='Metric', value_name='Score')
     create_plot_topk_results(df_long, top_K)
     create_plot_family_tradeoff(df_long)
+    create_plot_depth_dist()
 

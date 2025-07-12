@@ -80,4 +80,4 @@ def create_dataset(max_dialogue_depth=5, num_samples_each_depth=200, random_stat
         .apply(lambda x: x.sample(n=num_samples_each_depth, random_state=random_state) if not x.empty else None)
     )
     selected_examples.reset_index(drop=True)
-    return Dataset.from_pandas(selected_examples, preserve_index=False)
+    return dialogue_dataset, Dataset.from_pandas(selected_examples, preserve_index=False)
