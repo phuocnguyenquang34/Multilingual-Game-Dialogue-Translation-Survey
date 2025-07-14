@@ -41,7 +41,7 @@ def main():
             st.write(row[:-2])
             st.write(f"GPU cost to load model: {round(gpu_to_load_model_df.loc[selected_index].values[0], 4)}MB")
             st.write(f"Mean time cost: {round(row.mean_time_cost, 4)}s")
-            st.write(f"Mean GPU cost each run: {round(row.mean_gpu_cost/1024.0**2, 4)}MB")
+            st.write(f"Mean GPU cost each run: {round(row.mean_gpu_cost/1024.0, 4)}KB")
     else:
         st.write("No valid CSV files found in the directory.")
 
